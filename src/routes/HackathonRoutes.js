@@ -16,6 +16,8 @@ router.post(
 );
 
 
+router.get("/my-hackathons", auth, controller.getMyHackathons);
+
 // Public list
 router.get("/all", controller.getAllHackathons);
 
@@ -24,7 +26,5 @@ router.get("/:id", auth, controller.getHackathonById);
 
 // Check user access
 router.get("/:hackathonId/check-access", auth, controller.checkUserAllowed);
-
-router.get("/my-hackathons", auth, controller.getMyHackathons);
 
 module.exports = router;
