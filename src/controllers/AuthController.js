@@ -20,9 +20,9 @@ const otpEmailTemplate = (otp) => `
 // 🔑 Helper: generate JWT
 const generateToken = (user) => {
   return jwt.sign(
-    { id: user._id, email: user.email, role: user.role },
+    { id: user._id, email: user.email, role: user.role, name: user.name },
     process.env.JWT_SECRET || "secretkey",
-    { expiresIn: "1h" }
+    { expiresIn: "7d" } // Extended to 7 days
   );
 };
 
@@ -152,5 +152,65 @@ exports.verifyOtpAndResetPassword = async (req, res) => {
     res.json({ message: "Password reset successful" });
   } catch (error) {
     res.status(500).json({ message: "Server error", error: error.message });
+  }
+};
+
+// -------------------- SEARCH USERS --------------------
+exports.searchUsers = async (req, res) => {
+  try {
+    const { query } = req.query;
+    const currentUserId = req.user.id || req.user._id;
+    
+    if (!query || query.length < 2) {
+      return res.status(400).json({ 
+        success: false, 
+        error: "Search query must be at least 2 characters" 
+      });
+    }
+    
+    // Search by name or email (case insensitive)
+    const users = await User.find({
+      _id: { $ne: currentUserId }, // Exclude current user
+      $or: [
+        { name: { $regex: query, $options: "i" } },
+        { email: { $regex: query, $options: "i" } }
+      ]
+    })
+      .select("name email role createdAt")
+      .limit(20);
+    
+    res.status(200).json({
+      success: true,
+      users,
+      count: users.length
+    });
+    
+  } catch (error) {
+    console.error("Error searching users:", error);
+    res.status(500).json({ success: false, error: "Failed to search users" });
+  }
+};
+
+// -------------------- GET ALL USERS (for chat) --------------------
+exports.getAllUsers = async (req, res) => {
+  try {
+    const currentUserId = req.user.id || req.user._id;
+    
+    const users = await User.find({
+      _id: { $ne: currentUserId }
+    })
+      .select("name email role createdAt")
+      .sort({ name: 1 })
+      .limit(100);
+    
+    res.status(200).json({
+      success: true,
+      users,
+      count: users.length
+    });
+    
+  } catch (error) {
+    console.error("Error fetching users:", error);
+    res.status(500).json({ success: false, error: "Failed to fetch users" });
   }
 };
