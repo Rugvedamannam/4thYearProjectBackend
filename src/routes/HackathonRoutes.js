@@ -27,4 +27,12 @@ router.get("/:id", auth, controller.getHackathonById);
 // Check user access
 router.get("/:hackathonId/check-access", auth, controller.checkUserAllowed);
 
+// Update general info (organizer only)
+router.put(
+  "/:id/general-info",
+  auth,
+  upload.single("banner"),
+  controller.updateGeneralInfo
+);
+
 module.exports = router;

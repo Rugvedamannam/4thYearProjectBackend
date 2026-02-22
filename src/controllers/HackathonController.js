@@ -206,3 +206,48 @@ exports.getMyHackathons = async (req, res) => {
 };
 
 
+// UPDATE GENERAL INFO
+exports.updateGeneralInfo = async (req, res) => {
+  try {
+    const hackathonId = req.params.id;
+
+    if (!req.user?.email) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const hackathon = await Hackathon.findById(hackathonId);
+    if (!hackathon) {
+      return res.status(404).json({ message: "Hackathon not found" });
+    }
+
+    // 🔐 Organizer check
+    if (hackathon.organizerEmail !== req.user.email.toLowerCase()) {
+      return res.status(403).json({
+        message: "Only organizer can update hackathon",
+      });
+    }
+
+    /* ---------- ONLY ALLOWED FIELDS ---------- */
+    const { name, theme, mode, description } = req.body;
+
+    if (name !== undefined) hackathon.name = name;
+    if (theme !== undefined) hackathon.theme = theme;
+    if (mode !== undefined) hackathon.mode = mode;
+    if (description !== undefined) hackathon.description = description;
+
+    /* ---------- Banner Upload ---------- */
+    if (req.file) {
+      hackathon.banner = `/uploads/hackathons/${req.file.filename}`;
+    }
+
+    await hackathon.save();
+
+    res.json({
+      message: "General info updated successfully",
+      hackathon,
+    });
+  } catch (err) {
+    console.error("Update error:", err);
+    res.status(500).json({ message: err.message });
+  }
+};
