@@ -35,4 +35,10 @@ router.put(
   controller.updateGeneralInfo
 );
 
+
+router.post(
+  "/:hackathonId/form-teams",
+  auth,
+  controller.autoFormTeams
+);
 module.exports = router;

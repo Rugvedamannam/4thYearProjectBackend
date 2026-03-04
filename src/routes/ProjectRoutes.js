@@ -21,9 +21,12 @@ router.post(
 // Organizer projects
 router.get("/my-projects", auth, controller.getMyProjects);
 
+router.get("/:id", controller.getProjectDetails);
+
 
 // Public list
 router.get("/all", controller.getAllProjects);
+
 
 
 module.exports = router;

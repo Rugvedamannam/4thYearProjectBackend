@@ -43,6 +43,15 @@ const timelineRoutes = require("./routes/TimeLineRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const teamRoutes = require("./routes/teamRoutes");
 const inviteRoutes = require("./routes/inviteRoutes");
+const registrationRoutes=require("./routes/registrationRoute");
+const teamAnalysisRoutes=require("./routes/eventRoutes");
+const participantRoutes=require("./routes/participantRoutes");
+const skillTrend=require("./routes/skillTrendRoutes");
+const editTeam=require("./routes/EditTeamRoutes");
+const workPlace=require("./routes/workplaceRoutes");
+const memberRoutes = require("./routes/memberRoutes");
+
+app.use("/api/register", registrationRoutes);
 
 app.use("/api", authRoutes);
 app.use("/api/hackathons", hackathonRoutes);
@@ -51,6 +60,12 @@ app.use("/api/timeline", timelineRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/teams", teamRoutes);
 app.use("/api/invites", inviteRoutes);
+app.use("/api/events",teamAnalysisRoutes);
+app.use("/api/participants",participantRoutes);
+app.use("/api/skilltrends",skillTrend);
+app.use("/api/editteam",editTeam);
+app.use("/api/workplace",workPlace);
+app.use("/api/members", memberRoutes);
 
 // Serve uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

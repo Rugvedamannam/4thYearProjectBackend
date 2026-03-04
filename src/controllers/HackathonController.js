@@ -1,6 +1,13 @@
+const Team = require("../models/Team");
 const Hackathon = require("../models/Hackathon");
+const Project = require("../models/ProjectModel");
+const User = require("../models/User");
 const path = require("path");
 const parsePdfWithPython = require("../utils/parsePdfWithPython");
+const StudentRegistration = require("../models/StudentRegistration");
+const axios = require("axios"); 
+const fs = require("fs");
+const FormData = require("form-data");
 
 // CREATE HACKATHON
 exports.createHackathon = async (req, res) => {
@@ -249,5 +256,183 @@ exports.updateGeneralInfo = async (req, res) => {
   } catch (err) {
     console.error("Update error:", err);
     res.status(500).json({ message: err.message });
+  }
+};
+
+exports.autoFormTeams = async (req, res) => {
+  try {
+    const { hackathonId } = req.params;
+
+    // 1️⃣ Check hackathon exists
+    const hackathon = await Hackathon.findById(hackathonId);
+    if (!hackathon) {
+      return res.status(404).json({
+        success: false,
+        error: "Hackathon not found"
+      });
+    }
+
+    // 2️⃣ Get registrations
+    const registrations = await StudentRegistration.find({ hackathonId });
+
+    if (!registrations.length) {
+      return res.status(400).json({
+        success: false,
+        error: "No registrations found"
+      });
+    }
+
+    // 3️⃣ Get projects
+    const projects = await Project.find({ hackathonId });
+
+    if (!projects.length) {
+      return res.status(400).json({
+        success: false,
+        error: "No projects found"
+      });
+    }
+
+    // 4️⃣ Prepare FormData
+    const formData = new FormData();
+
+    const formattedProjects = projects.map((proj) => ({
+      projectId: proj._id.toString(),
+      projectName: proj.projectName,
+      description: proj.description || "",
+      techstack: proj.techstack || []
+    }));
+
+    const formattedParticipants = registrations.map((reg) => ({
+      participantId: reg._id.toString(),
+      participantName: reg.name,
+      githubProfile: reg.github || ""
+    }));
+
+    formData.append("projects", JSON.stringify(formattedProjects));
+    formData.append("participantData", JSON.stringify(formattedParticipants));
+
+    // 5️⃣ Attach resumes (same order as participants)
+    for (let reg of registrations) {
+
+      if (!reg.resume) {
+        console.log("No resume for:", reg.email);
+        continue;
+      }
+
+      const fixedPath = reg.resume.replace(/\\/g, "/");
+      const resumePath = path.join(process.cwd(), fixedPath);
+
+      console.log("Looking for resume at:", resumePath);
+
+      if (!fs.existsSync(resumePath)) {
+        console.log("Resume not found:", resumePath);
+        continue;
+      }
+
+      formData.append(
+        "resumes",
+        fs.createReadStream(resumePath),
+        path.basename(resumePath)
+      );
+    }
+
+    // 6️⃣ Call AI API
+    const aiResponse = await axios.post(
+      "https://skillsyncai-api.onrender.com/api/v2/form-teams",
+      formData,
+      {
+        headers: formData.getHeaders(),
+        maxContentLength: Infinity,
+        maxBodyLength: Infinity
+      }
+    );
+
+    const formedTeams = aiResponse.data.teams;
+
+    console.log("AI RESPONSE:", JSON.stringify(formedTeams, null, 2));
+
+    // 7️⃣ Delete old teams
+    await Team.deleteMany({ hackathonId });
+
+    // 8️⃣ Save new teams
+    for (const team of formedTeams) {
+
+      const members = [];
+
+      for (let i = 0; i < team.members.length; i++) {
+
+        const member = team.members[i];
+
+        // ✅ Support snake_case & camelCase
+        const participantId =
+          member.participant_id || member.participantId;
+
+        if (!participantId) {
+          console.log("AI returned member without participant_id:", member);
+          continue;
+        }
+
+        const registration = await StudentRegistration.findById(participantId);
+
+        if (!registration) {
+          console.log("No registration found for:", participantId);
+          continue;
+        }
+
+        const user = await User.findOne({
+          email: registration.email.toLowerCase()
+        });
+
+        if (!user) {
+          console.log("No user found for email:", registration.email);
+          continue;
+        }
+
+        members.push({
+          userId: user._id,
+          name: user.name,
+          email: user.email,
+          role: i === 0 ? "leader" : "member",
+          joinedAt: new Date()
+        });
+      }
+
+      // 🚨 Prevent saving empty teams
+      if (members.length === 0) {
+        console.log("Skipping team with no valid members:", team.team_name);
+        continue;
+      }
+
+      const matchedProject = projects.find(
+        p => p._id.toString() === team.project_id
+      );
+
+      await Team.create({
+        name: team.team_name,
+        hackathonId,
+        projectId: matchedProject?._id || null,
+        members,
+        maxSize: team.team_size || members.length,
+        description: "AI Generated Team"
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Teams formed successfully"
+    });
+
+  } catch (error) {
+
+    console.error("Auto team formation error:", error);
+
+    if (error.response) {
+      console.error("AI ERROR RESPONSE:", error.response.data);
+    }
+
+    res.status(500).json({
+      success: false,
+      error: "Failed to form teams"
+    });
   }
 };

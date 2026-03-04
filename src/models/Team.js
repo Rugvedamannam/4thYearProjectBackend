@@ -64,12 +64,10 @@ const teamSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Pre-save hook to update memberEmails
-teamSchema.pre("save", function(next) {
-  this.memberEmails = this.members.map(m => m.email.toLowerCase());
-  if (!this.chatRoomId) {
-    this.chatRoomId = this._id.toString();
+teamSchema.pre("save", function () {
+  if (!this.members || this.members.length === 0) {
+    throw new Error("Team must have at least one member");
   }
-  next();
 });
 
 // Index for efficient queries
