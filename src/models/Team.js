@@ -57,6 +57,12 @@ const teamSchema = new mongoose.Schema({
     enum: ["active", "disbanded", "completed"],
     default: "active"
   },
+
+  organizerEmail: {
+  type: String,
+  required: true,
+  lowercase: true
+},
   
   // Team chat room ID (same as team _id for simplicity)
   chatRoomId: { type: String, default: null }
@@ -69,6 +75,8 @@ teamSchema.pre("save", function () {
     throw new Error("Team must have at least one member");
   }
 });
+
+
 
 // Index for efficient queries
 teamSchema.index({ hackathonId: 1, status: 1 });

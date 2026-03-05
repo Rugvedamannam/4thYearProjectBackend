@@ -408,13 +408,14 @@ exports.autoFormTeams = async (req, res) => {
       );
 
       await Team.create({
-        name: team.team_name,
-        hackathonId,
-        projectId: matchedProject?._id || null,
-        members,
-        maxSize: team.team_size || members.length,
-        description: "AI Generated Team"
-      });
+  name: team.team_name,
+  hackathonId,
+  organizerEmail: hackathon.organizerEmail, // ✅ from hackathon
+  projectId: matchedProject?._id || null,
+  members,
+  maxSize: team.team_size || members.length,
+  description: "AI Generated Team"
+});
     }
 
     res.status(200).json({

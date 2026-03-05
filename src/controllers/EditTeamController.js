@@ -1,22 +1,25 @@
-const Team = require("../models/EditTeam");
+const Team = require("../models/Team");
 
-// Get all teams
-exports.getTeams = async (req, res) => {
+const getTeamsForEdit = async (req, res) => {
   try {
-    const teams = await Team.find();
-    res.json(teams);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    const teams = await Team.find()
+      .populate("members.userId", "name email")
+      .select("name members hackathonId");
+
+    res.status(200).json({
+      success: true,
+      teams
+    });
+
+  } catch (error) {
+    console.error("Error fetching teams:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch teams"
+    });
   }
 };
-exports.createTeams = async (req, res) => {
-    try {
-      const teams = req.body; // expect an array of objects
-      if (!Array.isArray(teams)) return res.status(400).json({ error: "Expected an array" });
-  
-      const insertedTeams = await Team.insertMany(teams);
-      res.status(201).json(insertedTeams);
-    } catch (err) {
-      res.status(500).json({ error: err.message });
-    }
-  };
+
+module.exports = {
+  getTeamsForEdit
+};

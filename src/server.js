@@ -50,6 +50,9 @@ const skillTrend=require("./routes/skillTrendRoutes");
 const editTeam=require("./routes/EditTeamRoutes");
 const workPlace=require("./routes/workplaceRoutes");
 const memberRoutes = require("./routes/memberRoutes");
+const profileRoutes = require("./routes/profileRoutes");
+
+app.use("/api/profile", profileRoutes);
 
 app.use("/api/register", registrationRoutes);
 
