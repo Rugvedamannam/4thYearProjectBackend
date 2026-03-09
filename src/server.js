@@ -51,6 +51,8 @@ const editTeam=require("./routes/EditTeamRoutes");
 const workPlace=require("./routes/workplaceRoutes");
 const memberRoutes = require("./routes/memberRoutes");
 const profileRoutes = require("./routes/profileRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const resultPageRoutes = require("./routes/resultPageRoutes");
 
 app.use("/api/profile", profileRoutes);
 
@@ -69,6 +71,8 @@ app.use("/api/skilltrends",skillTrend);
 app.use("/api/editteam",editTeam);
 app.use("/api/workplace",workPlace);
 app.use("/api/members", memberRoutes);
+app.use("/api/tasks", taskRoutes);
+app.use("/api/resultspage", resultPageRoutes);
 
 // Serve uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));

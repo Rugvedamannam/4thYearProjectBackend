@@ -1,87 +1,159 @@
+const User = require("../models/User");
+const Registration = require("../models/StudentRegistration"); // your registration model
 const Profile = require("../models/Profile");
 
-/* =========================
-   GET PROFILE BY EMAIL
-   ========================= */
-exports.getProfile = async (req, res) => {
+/* ================= GET PROFILE ================= */
+
+const getProfile = async (req, res) => {
   try {
-    let { email } = req.query;
+
+    const email = req.query.email?.toLowerCase();
 
     if (!email) {
-      return res.status(400).json({ message: "Email is required" });
+      return res.status(400).json({
+        success: false,
+        message: "Email is required"
+      });
     }
 
+    const user = await User.findOne({ email });
 
-    const profile = await Profile.findOne({ email });
-
-    if (!profile) {
-      return res.status(404).json({ message: "Profile not found" });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found"
+      });
     }
 
-    res.status(200).json(profile);
+    /* get registration details if exists */
+    const registration = await Registration.findOne({ email });
+
+    const profileData = {
+      name: user.name,
+      email: user.email,
+      role: user.role,
+
+      /* editable fields */
+      about: registration?.about || "",
+      location: registration?.location || "",
+      linkedin: registration?.linkedin || "",
+      github: registration?.github || "",
+      skills: registration?.skills || [],
+
+      avatar: user.name
+        ? user.name
+            .split(" ")
+            .map((n) => n[0])
+            .join("")
+        : "U"
+    };
+
+    res.status(200).json(profileData);
 
   } catch (error) {
-    res.status(500).json({ message: "Server Error" });
-  }
-};
 
+    console.error("Profile fetch error:", error);
 
-/* =========================
-   CREATE PROFILE
-   ========================= */
-exports.createProfile = async (req, res) => {
-  try {
-    let { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({ message: "Email is required" });
-    }
-
-    // 🔥 remove mailto if exists
-    email = email.replace("mailto:", "").toLowerCase();
-
-    const existingProfile = await Profile.findOne({ email });
-    if (existingProfile) {
-      return res.status(400).json({ message: "Profile already exists" });
-    }
-
-    const newProfile = new Profile({
-      ...req.body,
-      email
+    res.status(500).json({
+      success: false,
+      message: "Server error"
     });
 
-    await newProfile.save();
-    res.status(201).json(newProfile);
-
-  } catch (error) {
-    res.status(500).json({ message: "Error Creating Profile" });
   }
 };
 
 
-/* =========================
-   UPDATE PROFILE
-   ========================= */
-exports.updateProfile = async (req, res) => {
+/* ================= UPDATE PROFILE ================= */
+
+const updateProfile = async (req, res) => {
   try {
-    const { email } = req.body;
+
+    const email = req.query.email?.toLowerCase();
+    console.log("Updating profile for email:", email);
 
     if (!email) {
-      return res.status(400).json({ message: "Email is required for update" });
+      return res.status(400).json({
+        success: false,
+        message: "Email required"
+      });
     }
 
-    const updatedProfile = await Profile.findOneAndUpdate(
-      { email },          // find by email instead of ID
-      req.body,
-      { new: true }
-    );
+    const {
+      about,
+      location,
+      linkedin,
+      github,
+      skills,
+      occupation,
+      company,
+      college
+    } = req.body;
 
-    if (!updatedProfile) {
-      return res.status(404).json({ message: "Profile not found" });
+    let profile = await Profile.findOne({ email });
+
+    /* If profile doesn't exist create one */
+
+    if (!profile) {
+
+      profile = new Profile({
+        email,
+        about,
+        location,
+        linkedin,
+        github,
+        skills,
+        role: occupation,
+        company,
+        college
+      });
+
+    } 
+    else {
+
+      profile.about = about;
+      profile.location = location;
+      profile.linkedin = linkedin;
+      profile.github = github;
+      profile.skills = skills;
+      profile.role = occupation;
+
+      if (occupation === "student") {
+        profile.college = college;
+        profile.company = "";
+      }
+
+      if (occupation === "company") {
+        profile.company = company;
+        profile.college = "";
+      }
+
     }
 
-    res.status(200).json(updatedProfile);
+    await profile.save();
+
+    res.status(200).json({
+      success: true,
+      message: "Profile updated successfully",
+      profile
+    });
+
   } catch (error) {
-    res.status(500).json({ message: "Update Failed" });
+
+    console.error("Profile update error:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error"
+    });
+
   }
+};
+
+module.exports = {
+  updateProfile
+};
+
+module.exports = {
+  getProfile,
+  updateProfile
 };

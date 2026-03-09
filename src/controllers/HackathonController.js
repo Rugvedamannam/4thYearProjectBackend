@@ -5,7 +5,7 @@ const User = require("../models/User");
 const path = require("path");
 const parsePdfWithPython = require("../utils/parsePdfWithPython");
 const StudentRegistration = require("../models/StudentRegistration");
-const axios = require("axios"); 
+const axios = require("axios");
 const fs = require("fs");
 const FormData = require("form-data");
 
@@ -15,7 +15,7 @@ exports.createHackathon = async (req, res) => {
     if (!req.user || !req.user.email) {
       return res.status(401).json({ message: "Unauthorized" });
     }
-   console.log("📥 Received hackathon creation request from", req.user.email);
+    console.log("📥 Received hackathon creation request from", req.user.email);
     const data = req.body;
 
     /* ================= FIX TYPES ================= */
@@ -101,43 +101,68 @@ exports.createHackathon = async (req, res) => {
 
 
 // GET ALL HACKATHONS
-// GET ALL HACKATHONS
+// GET ALL HACKATHONS WITH PARTICIPANT COUNT
 exports.getAllHackathons = async (req, res) => {
   try {
+
     const email = req.query.email?.toLowerCase();
+
     console.log("📧 Current user email:", email);
-    const hackathons = await Hackathon.find({ published: true }).sort({ createdAt: -1 });
 
-    const response = hackathons.map(h => {
-      let isAllowed = false;
+    const hackathons = await Hackathon
+      .find({ published: true })
+      .sort({ createdAt: -1 });
 
-      if (h.type === "public") {
-        isAllowed = true; // public hackathon → everyone can see
-      } else if (h.type === "private") {
-        // private hackathon → only check if allowedParticipants includes email
-        if (h.allowedParticipants?.length && email) {
-          isAllowed = h.allowedParticipants.includes(email);
-        } else {
-          isAllowed = false; // private with no allowed participants → no access
+    const response = await Promise.all(
+
+      hackathons.map(async (h) => {
+
+        /* ---------- COUNT PARTICIPANTS ---------- */
+
+        const participantCount = await StudentRegistration.countDocuments({
+          hackathonId: h._id
+        });
+
+        /* ---------- ACCESS CHECK ---------- */
+
+        let isAllowed = false;
+
+        if (h.type === "public") {
+          isAllowed = true;
         }
-      }
 
-      return {
-        _id: h._id,
-        name: h.name,
-        banner: h.banner,
-        type: h.type,
-        participants: h.participants || 0,
-        isAllowed,
-      };
-    });
+        else if (h.type === "private") {
 
-    console.log("Allowed participants:", hackathons.map(h => h.allowedParticipants));
-    console.log("Response with isAllowed:", response);
+          if (h.allowedParticipants?.length && email) {
+            isAllowed = h.allowedParticipants.includes(email);
+          } else {
+            isAllowed = false;
+          }
+
+        }
+
+        return {
+          _id: h._id,
+          name: h.name,
+          banner: h.banner,
+          type: h.type,
+          participants: participantCount,   // 🔥 actual count
+          isAllowed
+        };
+
+      })
+    );
 
     res.json(response);
+
   } catch (err) {
-    res.status(500).json({ error: err.message });
+
+    console.error("Error fetching hackathons:", err);
+
+    res.status(500).json({
+      error: err.message
+    });
+
   }
 };
 
@@ -263,7 +288,6 @@ exports.autoFormTeams = async (req, res) => {
   try {
     const { hackathonId } = req.params;
 
-    // 1️⃣ Check hackathon exists
     const hackathon = await Hackathon.findById(hackathonId);
     if (!hackathon) {
       return res.status(404).json({
@@ -272,7 +296,6 @@ exports.autoFormTeams = async (req, res) => {
       });
     }
 
-    // 2️⃣ Get registrations
     const registrations = await StudentRegistration.find({ hackathonId });
 
     if (!registrations.length) {
@@ -282,7 +305,6 @@ exports.autoFormTeams = async (req, res) => {
       });
     }
 
-    // 3️⃣ Get projects
     const projects = await Project.find({ hackathonId });
 
     if (!projects.length) {
@@ -292,7 +314,8 @@ exports.autoFormTeams = async (req, res) => {
       });
     }
 
-    // 4️⃣ Prepare FormData
+    /* ---------- PREPARE FORM DATA ---------- */
+
     const formData = new FormData();
 
     const formattedProjects = projects.map((proj) => ({
@@ -311,23 +334,16 @@ exports.autoFormTeams = async (req, res) => {
     formData.append("projects", JSON.stringify(formattedProjects));
     formData.append("participantData", JSON.stringify(formattedParticipants));
 
-    // 5️⃣ Attach resumes (same order as participants)
+    /* ---------- ATTACH RESUMES ---------- */
+
     for (let reg of registrations) {
 
-      if (!reg.resume) {
-        console.log("No resume for:", reg.email);
-        continue;
-      }
+      if (!reg.resume) continue;
 
       const fixedPath = reg.resume.replace(/\\/g, "/");
       const resumePath = path.join(process.cwd(), fixedPath);
 
-      console.log("Looking for resume at:", resumePath);
-
-      if (!fs.existsSync(resumePath)) {
-        console.log("Resume not found:", resumePath);
-        continue;
-      }
+      if (!fs.existsSync(resumePath)) continue;
 
       formData.append(
         "resumes",
@@ -336,7 +352,8 @@ exports.autoFormTeams = async (req, res) => {
       );
     }
 
-    // 6️⃣ Call AI API
+    /* ---------- CALL AI API ---------- */
+
     const aiResponse = await axios.post(
       "https://skillsyncai-api.onrender.com/api/v2/form-teams",
       formData,
@@ -351,10 +368,12 @@ exports.autoFormTeams = async (req, res) => {
 
     console.log("AI RESPONSE:", JSON.stringify(formedTeams, null, 2));
 
-    // 7️⃣ Delete old teams
+    /* ---------- DELETE OLD TEAMS ---------- */
+
     await Team.deleteMany({ hackathonId });
 
-    // 8️⃣ Save new teams
+    /* ---------- SAVE NEW TEAMS ---------- */
+
     for (const team of formedTeams) {
 
       const members = [];
@@ -363,59 +382,84 @@ exports.autoFormTeams = async (req, res) => {
 
         const member = team.members[i];
 
-        // ✅ Support snake_case & camelCase
         const participantId =
           member.participant_id || member.participantId;
 
-        if (!participantId) {
-          console.log("AI returned member without participant_id:", member);
-          continue;
-        }
+        if (!participantId) continue;
 
         const registration = await StudentRegistration.findById(participantId);
-
-        if (!registration) {
-          console.log("No registration found for:", participantId);
-          continue;
-        }
+        if (!registration) continue;
 
         const user = await User.findOne({
           email: registration.email.toLowerCase()
         });
 
-        if (!user) {
-          console.log("No user found for email:", registration.email);
-          continue;
-        }
+        if (!user) continue;
 
         members.push({
+
           userId: user._id,
+
           name: user.name,
+
           email: user.email,
+
           role: i === 0 ? "leader" : "member",
-          joinedAt: new Date()
+
+          joinedAt: new Date(),
+
+          /* ---------- AI DATA ---------- */
+
+          student_id: member.student_id,
+
+          participant_id: member.participant_id,
+
+          participant_name: member.participant_name,
+
+          github_profile: member.github_profile,
+
+          overall_score: member.overall_score,
+
+          experience_score: member.experience_score,
+
+          reason: member.reason,
+
+          top_skills: member.top_skills || []
+
         });
       }
 
-      // 🚨 Prevent saving empty teams
-      if (members.length === 0) {
-        console.log("Skipping team with no valid members:", team.team_name);
-        continue;
-      }
+      if (members.length === 0) continue;
 
       const matchedProject = projects.find(
         p => p._id.toString() === team.project_id
       );
 
       await Team.create({
-  name: team.team_name,
-  hackathonId,
-  organizerEmail: hackathon.organizerEmail, // ✅ from hackathon
-  projectId: matchedProject?._id || null,
-  members,
-  maxSize: team.team_size || members.length,
-  description: "AI Generated Team"
-});
+
+        name: team.team_name,
+
+        team_id: team.team_id,
+
+        hackathonId,
+
+        organizerEmail: hackathon.organizerEmail,
+
+        projectId: matchedProject?._id || null,
+
+        members,
+
+        maxSize: team.team_size || members.length,
+
+        team_size: team.team_size,
+
+        description: "AI Generated Team",
+
+        balance_score: team.balance_score,
+
+        aiRawResponse: team
+
+      });
     }
 
     res.status(200).json({

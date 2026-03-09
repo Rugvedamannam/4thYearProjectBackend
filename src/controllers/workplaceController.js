@@ -9,36 +9,42 @@ const Project = require("../models/ProjectModel"); // You said you have this
 // =====================================================
 exports.getWorkplaceDashboard = async (req, res) => {
   try {
-    // ✅ Get email from query instead of req.user
+
     const email = req.query.email;
 
     if (!email) {
       return res.status(400).json({ message: "Email is required" });
     }
 
-    /* 1️⃣ Find teams where user is member */
+    /* 1️⃣ Find teams where user is a member */
     const teams = await Team.find({
       memberEmails: email.toLowerCase(),
       status: "active",
     });
 
-    const teamIds = teams.map((team) => team._id);
-    console.log("Teams found for email:", email, teams);
+    console.log("Teams found:", teams);
 
-    /* 2️⃣ Get projects of those teams */
+    /* 2️⃣ Extract projectIds from teams */
+    const projectIds = teams
+      .filter(team => team.projectId) // remove null projects
+      .map(team => team.projectId);
+
+    /* 3️⃣ Get projects using projectId */
     const projects = await Project.find({
-      teamId: { $in: teamIds },
+      _id: { $in: projectIds }
     })
       .populate("hackathonId", "name")
       .sort({ createdAt: -1 })
       .limit(10);
 
+      console.log("Projects found:", projects);
     res.json({
       success: true,
       teamsCount: teams.length,
       projectsCount: projects.length,
       projects,
     });
+
   } catch (err) {
     console.error("Workplace dashboard error:", err);
     res.status(500).json({ message: "Server error" });
@@ -53,7 +59,7 @@ exports.getWorkplaceDashboard = async (req, res) => {
 // =====================================================
 exports.getWorkplaceDetails = async (req, res) => {
   try {
-    const userEmail = req.user.email.toLowerCase();
+   const userEmail = req.query.email;
 
     // 1️⃣ Find registration
     const registration = await StudentRegistration.findOne({
@@ -110,8 +116,9 @@ exports.getWorkplaceDetails = async (req, res) => {
       project: project
         ? {
             id: project._id,
-            title: project.title,
+            title: project.projectName,
             description: project.description,
+            submissionDeadline:project.submissionDeadline,
           }
         : null,
     });

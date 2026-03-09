@@ -10,6 +10,7 @@ router.post(
   "/",
   auth,
   upload.fields([
+     { name: "banner", maxCount: 1 },
     { name: "problemStatementPdf", maxCount: 1 },
     { name: "dataset", maxCount: 1 },
     { name: "starterCode", maxCount: 1 }

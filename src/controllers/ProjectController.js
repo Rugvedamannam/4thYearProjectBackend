@@ -9,6 +9,11 @@ exports.createProject = async (req, res) => {
     const projectData = {
       ...req.body,
       organizerEmail,
+      techStack: JSON.parse(req.body.techStack || "[]"),
+      benefits: JSON.parse(req.body.benefits || "{}"),
+
+      banner: req.files?.banner?.[0]?.path || null,
+
       assets: {
         problemStatementPdf: req.files?.problemStatementPdf?.[0]?.path || null,
         dataset: req.files?.dataset?.[0]?.path || null,

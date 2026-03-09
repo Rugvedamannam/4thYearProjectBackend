@@ -6,6 +6,9 @@ const {
   registerStudent,
   getAllRegistrations,
   getRegistrationsByHackathon,
+   getParticipantsForHackathon,
+   getRegisteredHackathons,
+    checkRegistration
 } = require("../controllers/RegistrationController");
 
 const router = express.Router();
@@ -51,5 +54,12 @@ router.get("/", getAllRegistrations);
 
 // Registrations for a specific hackathon
 router.get("/hackathon/:hackathonId", getRegistrationsByHackathon);
+
+// Participants page data
+router.get("/participants/:hackathonId", getParticipantsForHackathon);
+
+router.get("/registered", getRegisteredHackathons);
+
+router.get("/check", checkRegistration);
 
 module.exports = router;

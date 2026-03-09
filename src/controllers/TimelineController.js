@@ -49,13 +49,17 @@ exports.createPhase = async (req, res) => {
 
 exports.getPhasesByHackathon = async (req, res) => {
   try {
+    const hackathonId = req.params.hackathonId;
+
     const phases = await Timeline.find({
-      hackathonId: req.params.hackathonId,
+      hackathonId: hackathonId
     }).sort({ order: 1 });
 
-    res.json(phases);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(200).json(phases);
+
+  } catch (error) {
+    console.error("Error fetching phases:", error);
+    res.status(500).json({ message: "Server error" });
   }
 };
 

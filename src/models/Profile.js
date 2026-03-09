@@ -1,53 +1,77 @@
 const mongoose = require("mongoose");
 
-const statSchema = new mongoose.Schema({
-  value: Number,
-  label: String,
-});
+const profileSchema = new mongoose.Schema(
+{
+  /* BASIC USER INFO */
 
-const hackathonSchema = new mongoose.Schema({
-  tier: String,
-  title: String,
-  date: String,
-  role: String,
-  pending: Boolean,
-});
-
-const projectSchema = new mongoose.Schema({
-  status: String,
-  title: String,
-  description: String,
-  role: String,
-  pending: Boolean,
-});
-
-const profileSchema = new mongoose.Schema({
-  name: String,
-  role: String,
-  location: String,
-  plan: String,
-  avatar: String,
-  email: String,
-  linkedin: String,
-  github: String,
-
-  about: String,
-  skills: [String],
-  stats: [statSchema],
-
-  hackathons: [hackathonSchema],
-  hackathonHighlight: {
-    title: String,
-    description: String,
-    progress: String,
+  name: {
+    type: String
   },
 
-  projects: [projectSchema],
-  projectHighlight: {
-    title: String,
-    description: String,
-    progress: String,
+  email: {
+    type: String,
+    required: true,
+    unique: true,
+    lowercase: true
   },
-});
+
+  avatar: {
+    type: String
+  },
+
+  role: {
+    type: String
+  },
+
+  /* PROFESSIONAL DETAILS */
+
+  location: {
+    type: String,
+    default: ""
+  },
+
+  linkedin: {
+    type: String,
+    default: ""
+  },
+
+  github: {
+    type: String,
+    default: ""
+  },
+
+  occupation: {
+    type: String,
+    enum: ["student", "company", ""],
+    default: ""
+  },
+
+  college: {
+    type: String,
+    default: ""
+  },
+
+  company: {
+    type: String,
+    default: ""
+  },
+
+  /* ABOUT */
+
+  about: {
+    type: String,
+    default: ""
+  },
+
+  skills: {
+    type: [String],
+    default: []
+  }
+
+},
+{
+  timestamps: true
+}
+);
 
 module.exports = mongoose.model("Profile", profileSchema);

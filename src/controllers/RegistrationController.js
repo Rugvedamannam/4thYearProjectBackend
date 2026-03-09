@@ -82,3 +82,111 @@ exports.getRegistrationsByHackathon = async (req, res) => {
     res.status(500).json({ message: "Error fetching registrations" });
   }
 };
+
+// ======================
+// GET PARTICIPANTS FOR PARTICIPANTS PAGE
+// ======================
+
+exports.getParticipantsForHackathon = async (req, res) => {
+  try {
+    const { hackathonId } = req.params;
+
+    if (!hackathonId) {
+      return res.status(400).json({
+        success: false,
+        message: "Hackathon ID is required",
+      });
+    }
+
+    const participants = await Student.find({ hackathonId })
+      .select(
+        "name email college skills state degree yearOfStudy createdAt"
+      )
+      .sort({ createdAt: -1 });
+
+    res.status(200).json({
+      success: true,
+      total: participants.length,
+      participants,
+    });
+  } catch (error) {
+    console.error("Error fetching participants:", error);
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch participants",
+    });
+  }
+};
+
+// ======================
+// GET HACKATHONS REGISTERED BY PARTICIPANT
+// ======================
+
+exports.getRegisteredHackathons = async (req, res) => {
+  try {
+    const email = req.query.email?.toLowerCase();
+    // console.log("Fetching registered hackathons for email:", email);
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    // 1️⃣ find registrations of this participant
+    const registrations = await Student.find({ email });
+
+    if (!registrations.length) {
+      return res.json([]);
+    }
+
+    // 2️⃣ extract hackathon IDs
+    const hackathonIds = registrations.map((r) => r.hackathonId);
+
+    // 3️⃣ fetch hackathons
+    const hackathons = await Hackathon.find({
+      _id: { $in: hackathonIds },
+      published: true,
+    }).sort({ createdAt: -1 });
+
+    res.json(hackathons);
+  } catch (err) {
+    console.error("Error fetching registered hackathons:", err);
+
+    res.status(500).json({
+      success: false,
+      message: "Server error",
+    });
+  }
+};
+
+exports.checkRegistration = async (req, res) => {
+
+  try {
+
+    const { email, hackathonId } = req.query;
+
+    const existing = await Student.findOne({
+      email,
+      hackathonId,
+    });
+
+    if (existing) {
+      return res.json({ registered: true });
+    }
+
+    res.json({ registered: false });
+
+  } catch (error) {
+
+    console.error("Check registration error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+
+  }
+
+};
